@@ -1,6 +1,7 @@
 import type { ContactMethod } from './config/contactMethods';
 
 export type Segment = { name: string; kind: string; value: string; color: string; icon: string; odds?: number };
+export type WheelSegment = { name: string; kind: string; value: string; color: string; icon: string; weight: number };
 export type Reward = { id: string; name: string; kind: string; value: string; icon: string; active: boolean; claimInstructions: string };
 export type WinStatus = 'pending' | 'claim_requested' | 'fulfilled' | 'rejected';
 
@@ -67,10 +68,11 @@ export const api = {
   contact: (body: { name: string; email: string; topic: string; message: string }) => request<{ ok: boolean }>('/contact', { method: 'POST', body }),
 
   adminLogin: (key: string) => request<{ token: string }>('/admin/login', { method: 'POST', body: { key } }),
-  adminOverview: () => request<{ winnings: Winning[]; rewards: Reward[]; messages: ContactMessage[]; stats: { winnings: number; claimRequests: number; spins: number; consoles: number } }>('/admin/overview', { token: a() }),
+  adminOverview: () => request<{ winnings: Winning[]; rewards: Reward[]; wheel: WheelSegment[]; messages: ContactMessage[]; stats: { winnings: number; claimRequests: number; spins: number; consoles: number } }>('/admin/overview', { token: a() }),
   adminAward: (body: { rewardId: string; note?: string }) => request<Winning>('/admin/award', { method: 'POST', body, token: a() }),
   adminPatchWinning: (id: string, body: Partial<Pick<Winning, 'status' | 'public' | 'note' | 'claimInstructions'>>) => request<Winning>(`/admin/winnings/${id}`, { method: 'PATCH', body, token: a() }),
   adminDeleteWinning: (id: string) => request(`/admin/winnings/${id}`, { method: 'DELETE', token: a() }),
+  adminSaveWheel: (wheel: WheelSegment[]) => request<WheelSegment[]>('/admin/wheel', { method: 'PUT', body: { wheel }, token: a() }),
   adminSaveReward: (r: Partial<Reward>) => (r.id
     ? request<Reward>(`/admin/rewards/${r.id}`, { method: 'PUT', body: r, token: a() })
     : request<Reward>('/admin/rewards', { method: 'POST', body: r, token: a() })),

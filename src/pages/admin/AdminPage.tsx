@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LogOut, Trash2, Eye, EyeOff } from 'lucide-react';
+import { LogOut, Trash2, Plus, Eye, EyeOff } from 'lucide-react';
 import Button from '../../components/Button';
 import PageIntro from '../../components/PageIntro';
 import TrackingNumber from '../../components/TrackingNumber';
-import { api, tokens, type Reward, type Winning, type WinStatus } from '../../api';
+import { api, tokens, type Reward, type Winning, type WinStatus, type WheelSegment } from '../../api';
 import { methodLabel, contactLink } from '../../config/contactMethods';
 
 type Overview = Awaited<ReturnType<typeof api.adminOverview>>;
-type Tab = 'winnings' | 'award' | 'rewards' | 'messages';
+type Tab = 'winnings' | 'award' | 'rewards' | 'wheel' | 'messages';
 
 const input = 'w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#7cfc00]';
 const card = 'rounded-2xl border border-white/8 bg-[#111612] p-5';
@@ -146,6 +146,56 @@ function RewardsTab({ data, reload }: { data: Overview; reload: () => void }) {
   );
 }
 
+function WheelTab({ data, reload }: { data: Overview; reload: () => void }) {
+  const [rows, setRows] = useState<WheelSegment[]>(data.wheel ?? []);
+  const [err, setErr] = useState('');
+  const [saved, setSaved] = useState(false);
+  if (!data.wheel) {
+    return <p className="rounded-xl border border-amber-300/25 bg-amber-300/5 p-4 text-sm text-amber-100/80">The server you are connected to is still the old version and does not support the wheel editor. Restart your local server (or wait for the Render deploy to finish) and reload this page.</p>;
+  }
+  const total = rows.reduce((n, r) => n + (Number(r.weight) > 0 ? Number(r.weight) : 0), 0);
+  const noPrizeCount = rows.filter((r) => r.kind === 'No prize').length;
+  const set = (i: number, patch: Partial<WheelSegment>) => { setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r))); setSaved(false); };
+  const add = () => { setRows([...rows, { name: 'New prize', kind: 'Reward', value: 'Prize', color: '#234b36', icon: '🎁', weight: 5 }]); setSaved(false); };
+  const remove = (i: number) => { setRows(rows.filter((_, j) => j !== i)); setSaved(false); };
+  const save = async () => {
+    try { await api.adminSaveWheel(rows.map((r) => ({ ...r, weight: Number(r.weight) }))); setErr(''); setSaved(true); reload(); } catch (x) { setErr((x as Error).message); setSaved(false); }
+  };
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-white/45">Chance is relative: a segment with 20 comes up twice as often as one with 10. A segment marked "Try Again" gives no prize and the visitor spins again. Between 2 and 12 segments. If a prize name matches one in the Rewards tab, winners get that reward's claim steps.</p>
+      {noPrizeCount === 0 && <p className="rounded-xl border border-amber-300/25 bg-amber-300/5 p-3 text-xs text-amber-100/80">There is no "Try Again" segment, so every spin wins a prize (and a console). Make sure you can fund that.</p>}
+      {rows.map((r, i) => {
+        const noPrize = r.kind === 'No prize';
+        const pct = total > 0 && Number(r.weight) > 0 ? ((Number(r.weight) / total) * 100).toFixed(1) : '0.0';
+        return (
+          <div key={i} className={`${card} grid items-center gap-2 md:grid-cols-[48px_1fr_1fr_90px_60px_90px_36px]`}>
+            <input value={r.icon} onChange={(e) => set(i, { icon: e.target.value })} className={`${input} text-center text-lg`} aria-label="Emoji" />
+            <input value={r.name} onChange={(e) => set(i, { name: e.target.value })} className={input} placeholder="Name on the wheel" aria-label="Name" />
+            <input value={r.value} onChange={(e) => set(i, { value: e.target.value })} className={input} placeholder="Value (e.g. $10)" aria-label="Value" />
+            <select value={noPrize ? 'none' : 'prize'} onChange={(e) => set(i, { kind: e.target.value === 'none' ? 'No prize' : r.kind === 'No prize' ? 'Reward' : r.kind })} className={input} aria-label="Type">
+              <option value="prize">Prize</option>
+              <option value="none">Try Again</option>
+            </select>
+            <input type="color" value={r.color} onChange={(e) => set(i, { color: e.target.value })} className="h-9 w-full rounded-lg bg-transparent" aria-label="Colour" />
+            <label className="flex items-center gap-1 text-[11px] text-white/45">
+              <input type="number" min={1} max={1000} value={r.weight} onChange={(e) => set(i, { weight: e.target.value as unknown as number })} className={input} aria-label="Chance" />
+              <span className="w-12 shrink-0">{pct}%</span>
+            </label>
+            <button onClick={() => remove(i)} disabled={rows.length <= 2} className="text-red-300/80 disabled:opacity-30" aria-label="Remove segment"><Trash2 size={16} /></button>
+          </div>
+        );
+      })}
+      {err && <p className="text-xs text-red-300">{err}</p>}
+      {saved && <p className="text-xs text-[#a5ff50]">Saved. The wheel on the site is updated.</p>}
+      <div className="flex gap-2">
+        <Button onClick={add} variant="quiet"><Plus size={15} /> Add segment</Button>
+        <Button onClick={save}>Save wheel</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [authed, setAuthed] = useState(!!tokens.admin());
   const [data, setData] = useState<Overview | null>(null);
@@ -160,7 +210,7 @@ export default function AdminPage() {
 
   if (!authed) return <PageIntro eyebrow="Staff only" title="ADMIN" description="Enter the admin key to manage winners, claims and rewards."><AdminLogin onDone={() => setAuthed(true)} /></PageIntro>;
 
-  const tabs: [Tab, string][] = [['winnings', 'Winnings'], ['award', 'Create prize'], ['rewards', 'Rewards'], ['messages', `Messages (${data?.messages.length ?? 0})`]];
+  const tabs: [Tab, string][] = [['winnings', 'Winnings'], ['award', 'Create prize'], ['rewards', 'Rewards'], ['wheel', 'Wheel'], ['messages', `Messages (${data?.messages.length ?? 0})`]];
   return (
     <PageIntro eyebrow="Staff only" title="ADMIN DASHBOARD" description="Manage winners, claim requests, rewards and messages.">
       {err && <p className="mb-4 text-sm text-red-300">{err}</p>}
@@ -179,6 +229,7 @@ export default function AdminPage() {
           {tab === 'winnings' && <WinningsTab data={data} reload={load} />}
           {tab === 'award' && <AwardTab data={data} reload={load} />}
           {tab === 'rewards' && <RewardsTab data={data} reload={load} />}
+          {tab === 'wheel' && <WheelTab data={data} reload={load} />}
           {tab === 'messages' && (
             <div className="space-y-3">
               {data.messages.length === 0 && <p className="text-sm text-white/40">No messages yet.</p>}

@@ -294,6 +294,7 @@ app.get('/api/admin/overview', requireAdmin, (_req, res) => {
   res.json({
     winnings: db.winnings,
     rewards: db.rewards,
+    wheel: db.wheel,
     messages: db.messages,
     stats: {
       winnings: db.winnings.length,
@@ -311,6 +312,40 @@ app.post('/api/admin/award', requireAdmin, (req, res) => {
   const w = createWinning({ item: reward, source: 'admin', note: str(req.body?.note, 300), bonus: req.body?.withConsole === true ? bonusFor() : null });
   save();
   res.json(w);
+});
+
+// Replace the whole wheel. Each segment: name, kind ("No prize" = Try Again), value, icon, color, weight (relative chance).
+app.put('/api/admin/wheel', requireAdmin, (req, res) => {
+  const list = req.body?.wheel;
+  if (!Array.isArray(list) || list.length < 2 || list.length > 12) {
+    return res.status(400).json({ error: 'The wheel needs between 2 and 12 segments.' });
+  }
+  const wheel = [];
+  for (const [i, s] of list.entries()) {
+    const name = str(s?.name, 40);
+    if (!name) return res.status(400).json({ error: `Segment ${i + 1} needs a name.` });
+    const weight = Number(s?.weight);
+    if (!Number.isInteger(weight) || weight < 1 || weight > 1000) {
+      return res.status(400).json({ error: `"${name}": chance must be a whole number from 1 to 1000.` });
+    }
+    const noPrize = s?.kind === 'No prize';
+    const color = /^#[0-9a-fA-F]{6}$/.test(s?.color) ? s.color : '#234b36';
+    wheel.push({
+      name,
+      kind: noPrize ? 'No prize' : str(s?.kind, 40) || 'Reward',
+      value: str(s?.value, 40) || (noPrize ? 'Good luck' : 'Prize'),
+      color,
+      icon: str(s?.icon, 8) || (noPrize ? '✨' : '🎁'),
+      weight,
+      ...(noPrize ? { respin: true } : {}),
+    });
+  }
+  if (!wheel.some((s) => s.kind !== 'No prize')) {
+    return res.status(400).json({ error: 'Keep at least one prize segment.' });
+  }
+  get().wheel = wheel;
+  save();
+  res.json(wheel);
 });
 
 app.patch('/api/admin/winnings/:id', requireAdmin, (req, res) => {

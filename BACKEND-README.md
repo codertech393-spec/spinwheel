@@ -72,3 +72,7 @@ By default data is saved to `server/data/db.json`, which free hosts erase on eve
 4. On start the log says `Data store: Postgres (DATABASE_URL)`.
 
 Notes: run a single server instance (data is held in memory and written as a whole). Writes are queued and retried, and flushed on shutdown. Good for thousands of winners; if you expect far more, move to per-row tables.
+
+## Editing the wheel
+
+Admin page > **Wheel** tab: add or remove segments (2 to 12), change names, values, emoji, colours and the relative chance (weight; the page shows the % each one gets). Mark a segment **Try Again** to make it a no-prize respin. Changes are saved to the database and apply to the live site immediately. Rewards (the list on the Rewards page) are edited in the **Rewards** tab.
