@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import crypto from 'node:crypto';
-import { load, save, get, DEFAULT_CLAIM } from './db.js';
+import { load, save, get, flush, DEFAULT_CLAIM } from './db.js';
 import { generateCode, normalizeCode, maskCode, cleanContact, maskContact, CONTACT_METHODS, PREFIX, LEGACY_PREFIX } from './tracking.js';
 
 const PORT = process.env.PORT || 4000;
@@ -19,7 +19,7 @@ if (!process.env.ADMIN_KEY) {
 }
 if (IS_PROD && ADMIN_KEY.length < 16) { console.error('ADMIN_KEY must be at least 16 characters in production.'); process.exit(1); }
 
-load();
+await load();
 
 const STATUSES = ['pending', 'claim_requested', 'fulfilled', 'rejected'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -378,4 +378,13 @@ setInterval(() => {
   for (const [t, exp] of adminSessions) if (exp < now) adminSessions.delete(t);
 }, 600_000).unref();
 
-app.listen(PORT, () => console.log(`Xbox 25 API on http://localhost:${PORT}`));
+const server = app.listen(PORT, () => console.log(`Xbox 25 API on http://localhost:${PORT}`));
+
+// Hosts send SIGTERM on every redeploy/restart: finish saving first so nothing is lost.
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, async () => {
+    server.close();
+    await flush();
+    process.exit(0);
+  });
+}

@@ -61,3 +61,14 @@ Delete `server/data/db.json` (test users/winnings from the account version). Whe
 - Landing on **Try Again** does not use up the spin: the visitor simply spins again (they are still capped by `MAX_ATTEMPTS_PER_IP_PER_DAY`, default 100). Only a spin that lands on a prize counts.
 - Cost warning: with the default wheel every non-"Try Again" segment is a prize and Try Again is a free respin, so every visitor eventually wins a prize plus a console. Add a real "no prize" segment and/or cap console stock before launch.
 - Fill `consoleValue` in `src/config/event.ts` (approximate retail value) for the official rules.
+
+## Permanent storage on free hosting (Postgres)
+
+By default data is saved to `server/data/db.json`, which free hosts erase on every restart. Set `DATABASE_URL` and the server stores everything in Postgres instead (same data, one table `app_state`, created automatically). Without `DATABASE_URL` it keeps using the local file, so local development is unchanged.
+
+1. Create a free project at https://neon.tech, then copy the connection string (starts with `postgresql://`).
+2. On your host (Render, Railway...) add an environment variable `DATABASE_URL` with that string. Never put it in a file or in git.
+3. Run `npm install` in `server` (adds the `pg` package) and deploy.
+4. On start the log says `Data store: Postgres (DATABASE_URL)`.
+
+Notes: run a single server instance (data is held in memory and written as a whole). Writes are queued and retried, and flushed on shutdown. Good for thousands of winners; if you expect far more, move to per-row tables.
