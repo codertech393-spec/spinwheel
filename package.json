@@ -21,6 +21,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "latest",
     "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "tailwindcss": "latest"
   }
 }
