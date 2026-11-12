@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gamepad2, Menu, X, Search } from 'lucide-react';
+import { Menu, X, Search } from 'lucide-react';
 import { EVENT } from '../config/event';
+import xLogo from '../images/xbox-white-logo.png'
 
 const links: [string, string][] = [
   ['Home', '/'],
@@ -22,8 +23,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="h-1 bg-gradient-to-r from-[#164b27] via-[#7cfc00] to-[#164b27]" />
       <header className="sticky top-0 z-40 border-b border-white/8 bg-[#080b09]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
-          <Link to="/" className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#7cfc00] text-black"><Gamepad2 size={24} /></span>
+          <Link to="/" className="flex items-center gap-1">
+            <span className="grid h-14 w-14 place-items-center text-black"><img src={xLogo} alt="Xbox Logo" /></span>
             <span>
               <b className="font-['Orbitron'] text-lg tracking-tight">XBOX <span className="text-[#7cfc00]">25</span></b>
               <small className="block text-[9px] font-bold tracking-[.25em] text-white/45">GAMING CELEBRATION</small>
